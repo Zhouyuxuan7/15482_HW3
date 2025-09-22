@@ -28,21 +28,78 @@ def create_working_relations(model, variables):
 
 def create_connected_relations(model, variables):
     # BEGIN STUDENT CODE
+    conns = []
+
+    # --- Power connections (5) ---
+    conns += [
+        connected('Outlet', 'Rasp-Pi'),
+        connected('Outlet', 'Power-Board'),
+        connected('Power-Board', 'Fans'),
+        connected('Power-Board', 'LEDs'),
+        connected('Power-Board', 'Pump'),
+    ]
+    # --- Signal connections (12) ---
+    conns += [## Sensors -> Sensor-Boards (6)
+        connected('H-T0', 'Sensor-Board0'),
+        connected('Light0', 'Sensor-Board0'),
+        connected('Moisture0', 'Sensor-Board0'),
+        connected('H-T1', 'Sensor-Board1'),
+        connected('Light1', 'Sensor-Board1'),
+        connected('Moisture1', 'Sensor-Board1'),
+        connected('Wlevel', 'Arduino'),
+        ## Sensor-Boards -> Arduino (2)
+        connected('Sensor-Board0', 'Arduino'),
+        connected('Sensor-Board1', 'Arduino'),
+        ## Arduino <-> Rasp-Pi (2) (bidirectional)
+        connected('Arduino', 'Rasp-Pi'),
+        connected('Rasp-Pi', 'Arduino'),
+        ## Arduino -> Power-Board (1)
+        connected('Arduino', 'Power-Board'),
+    ]
+    create_relations(conns, model, variables)
     # END STUDENT CODE
     pass
 
 def create_powered_relations(model, variables):
     # BEGIN STUDENT CODE
+    pow_rels = [
+        powered('Outlet'),
+        powered('Rasp-Pi'),
+        powered('Power-Board'),
+        powered('Fans'),
+        powered('LEDs'),
+        powered('Pump'),
+    ]
+    create_relations(pow_rels, model, variables)
     # END STUDENT CODE
     pass
 
 def create_signal_relations(model, variables):
     # BEGIN STUDENT CODE
+    sig_rels = []
+    # (A) 7 sensors generate their own signals (7)
+    for s in sensors:
+        sig_rels.append(signal(s, s))
+        sig_rels.append(signal(s, 'Arduino'))
+        sig_rels.append(signal(s, 'Rasp-Pi'))
+    # (B) Each sensor-board receives its 3 specific sensors (6)
+    for s in ['H-T0', 'Light0', 'Moisture0']:
+        sig_rels.append(signal(s, 'Sensor-Board0'))
+    for s in ['H-T1', 'Light1', 'Moisture1']:
+        sig_rels.append(signal(s, 'Sensor-Board1'))
+    # (C, D, E, F, G) Actuator signals
+    for a in ['Fans', 'LEDs', 'Pump']:
+        sig_rels.append(rasp_pi_signal(a))
+        sig_rels.append(signal(a, 'Arduino'))
+        sig_rels.append(signal(a, 'Power-Board'))
+    create_relations(sig_rels, model, variables)
     # END STUDENT CODE
     pass
 
 def create_expected_result_relations(model, variables):
     # BEGIN STUDENT CODE
+    exp_rels = [expected_result(a) for a in ['Fans','LEDs','Pump']]
+    create_relations(exp_rels, model, variables)
     # END STUDENT CODE
     pass
 
@@ -82,16 +139,82 @@ def create_powered_constraints(model, variables):
 
 def create_signal_constraints(model, variables):
     # BEGIN STUDENT CODE
+    sb0 = ['H-T0', 'Light0', 'Moisture0']
+    sb1 = ['H-T1', 'Light1', 'Moisture1']
+    # --- Sensor signals ---
+    for s in sb0 + sb1:
+        # Sensor → SensorBoard
+        add_constraint_to_model(
+            f"IFF('{signal(s, 'Sensor-Board0' if s in sb0 else 'Sensor-Board1')}', "
+            f"AND('{connected(s, 'Sensor-Board0' if s in sb0 else 'Sensor-Board1')}', "
+            f"AND('{working(s)}', '{signal(s, s)}')))", model, variables
+        )
+        # Sensor → Arduino (through its board)
+        board = 'Sensor-Board0' if s in sb0 else 'Sensor-Board1'
+        add_constraint_to_model(
+            f"IFF('{signal(s, 'Arduino')}', "
+            f"AND('{connected(board, 'Arduino')}', "
+            f"AND('{working(board)}', '{signal(s, board)}')))", model, variables
+        )
+    # Wlevel special case (direct to Arduino)
+    add_constraint_to_model(
+        f"IFF('{signal('Wlevel', 'Arduino')}', "
+        f"AND('{connected('Wlevel', 'Arduino')}', "
+        f"AND('{working('Wlevel')}', '{signal('Wlevel', 'Wlevel')}')))",
+        model, variables
+    )
+    # Sensors → Rasp-Pi 
+    for s in sensors:
+        add_constraint_to_model(
+            f"IFF('{signal(s, 'Rasp-Pi')}', "
+            f"AND('{connected('Arduino', 'Rasp-Pi')}', "
+            f"AND('{working('Arduino')}', '{signal(s, 'Arduino')}')))",
+            model, variables
+        )
+    # --- Actuator signals ---
+    for a in actuators:
+        # Rasp-Pi → Arduino
+        add_constraint_to_model(
+            f"IFF('{signal(a, 'Arduino')}', "
+            f"AND('{connected('Rasp-Pi', 'Arduino')}', "
+            f"AND('{working('Rasp-Pi')}', '{rasp_pi_signal(a)}')))",
+            model, variables
+        )
+        # Arduino → Power-Board
+        add_constraint_to_model(
+            f"IFF('{signal(a, 'Power-Board')}', "
+            f"AND('{connected('Arduino', 'Power-Board')}', "
+            f"AND('{working('Arduino')}', '{signal(a, 'Arduino')}')))",
+            model, variables
+        )
     # END STUDENT CODE
     pass
 
 def create_sensor_generation_constraints(model, variables):
     # BEGIN STUDENT CODE
+    for s in sensors:
+        c = f"IFF('{signal(s, s)}', '{working(s)}')"
+        add_constraint_to_model(c, model, variables)
     # END STUDENT CODE
     pass
 
 def create_expected_result_constraints(model, variables):
     # BEGIN STUDENT CODE
+    associated = {
+        'Fans': ['H-T0', 'H-T1'],
+        'LEDs': ['Light0', 'Light1'],
+        'Pump': ['Moisture0', 'Moisture1', 'Wlevel']
+    }
+    for a, sens_list in associated.items():
+        sensors_or = f"'{signal(sens_list[0], 'Rasp-Pi')}'"
+        for s in sens_list[1:]:
+            sensors_or = f"OR({sensors_or}, '{signal(s, 'Rasp-Pi')}')"
+        constraint = (
+            f"IFF('{expected_result(a)}', "
+            f"AND('{rasp_pi_signal(a)}', "
+            f"AND('{powered(a)}', AND('{working(a)}', {sensors_or}))))"
+        )
+        add_constraint_to_model(constraint, model, variables)
     # END STUDENT CODE
     pass
 
@@ -116,11 +239,23 @@ class DiagnosesCollector(cp_model.CpSolverSolutionCallback):
     def __init__(self, variables):
         cp_model.CpSolverSolutionCallback.__init__(self)
         # BEGIN STUDENT CODE
+        self.variables = variables
+        self._diagnoses = []
+        self._seen = set() 
         # END STUDENT CODE
 
     def OnSolutionCallback(self):
         # Extract the connected and working relations that are False
         # BEGIN STUDENT CODE
+        diag = set()
+        for name, var in self.variables.items():
+            if name.startswith('connected') or name.startswith('working'):
+                if self.Value(var) == 0:
+                    diag.add(name)
+        f = frozenset(diag)
+        if f not in self._seen:
+            self._seen.add(f)
+            self._diagnoses.append(diag)
         # END STUDENT CODE
         pass
 
@@ -135,6 +270,20 @@ def diagnose(observations):
     # Remove all redundant diagnoses (those that are supersets
     #   of other diagnoses).
     # BEGIN STUDENT CODE
+    uniq = collector._diagnoses
+    minimal = []
+    for d in uniq:
+        is_superset = False
+        for other in uniq:
+            if other < d:
+                is_superset = True
+                break
+        if not is_superset:
+            minimal.append(d)
+    temp = []
+    for diag in minimal:
+        temp.append((sorted(list(diag)), diag))
+    temp.sort()
+    diagnoses = [t[1] for t in temp]
     # END STUDENT CODE
-
     return diagnoses

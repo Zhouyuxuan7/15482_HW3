@@ -4,8 +4,8 @@ import sys, select
 from terrabot_utils import time_since_midnight, set_use_sim_time, spin_for, get_ros_time
 from terrabot_utils import clock_time
 import greenhouse_behaviors as gb
-import camera_behavior
-import email_behavior
+import light_monitor
+import logging_monitor
 
 def check_for_input():
     if sys.stdin in select.select([sys.stdin],[],[],0)[0]:
@@ -41,11 +41,18 @@ class BehavioralGreenhouseAgent(GreenhouseAgent):
         self.sensors = ros_hardware.ROSSensors(self)
         # BEGIN STUDENT CODE
         self.actuators = ros_hardware.ROSActuators(self)
-        self.behaviors = [gb.Light(self), gb.RaiseTemp(self), gb.LowerTemp(self),
-                          gb.LowerHumid(self), gb.RaiseSMoist(self), 
-                          gb.LowerSMoist(self)]
-        self.setBehavioralLayer(layers.BehavioralLayer(self.sensors, self.actuators,
-                                                       self.behaviors, self))
+        self.light = gb.Light(self)
+        self.raise_temp = gb.RaiseTemp(self)
+        self.low_temp = gb.LowerTemp(self)
+        self.low_humid = gb.LowerHumid(self)
+        self.raise_moist = gb.RaiseSMoist(self)
+        self.low_moist = gb.LowerSMoist(self)
+
+        self.behaviors = [self.light, self.raise_temp, self.low_temp, self.low_humid, 
+                          self.raise_moist, self.low_moist]
+
+        self.behavioral_layer = layers.BehavioralLayer(self.sensors, self.actuators, self.behaviors, self)
+        self.setBehavioralLayer(self.behavioral_layer)
         # END STUDENT CODE
 
     def setBehavioralLayer(self, behavioral):
@@ -80,17 +87,25 @@ class LayeredGreenhouseAgent(GreenhouseAgent):
         self.sensors = ros_hardware.ROSSensors(self)
         # BEGIN STUDENT CODE
         self.actuators = ros_hardware.ROSActuators(self)
-        self.takeImage = camera_behavior.TakeImage(self)
-        self.emailer = email_behavior.Email(self)
-        self.behaviors = [gb.Light(self), gb.RaiseTemp(self), gb.LowerTemp(self),
-                          gb.LowerHumid(self), gb.RaiseSMoist(self),
-                          gb.LowerSMoist(self), self.takeImage, self.emailer]
-        self.setBehavioralLayer(layers.BehavioralLayer(self.sensors, self.actuators,
-                                                       self.behaviors, self))
+        self.light = gb.Light(self)
+        self.raise_temp = gb.RaiseTemp(self)
+        self.low_temp = gb.LowerTemp(self)
+        self.low_humid = gb.LowerHumid(self)
+        self.raise_moist = gb.RaiseSMoist(self)
+        self.low_moist = gb.LowerSMoist(self)
 
-        self.setExecutiveLayer(layers.ExecutiveLayer(self))
-        self.setPlanningLayer(layers.PlanningLayer(schedulefile, self))
+        self.behaviors = [self.light, self.raise_temp, self.low_temp, 
+                          self.low_humid, self.raise_moist, self.low_moist]
+
+        self.behavioral_layer = layers.BehavioralLayer(self.sensors, self.actuators, self.behaviors, self)
+        self.setBehavioralLayer(self.behavioral_layer)
+        self.executive_layer = layers.ExecutiveLayer(self)
+        self.setExecutiveLayer(self.executive_layer)
+        self.planning_layer = layers.PlanningLayer(schedulefile, self)
+        self.setPlanningLayer(self.planning_layer)
         self.getPlanningLayer().getNewSchedule()
+
+        self.getExecutiveLayer().setMonitors(self.sensors, self.actuators.actuator_state, [light_monitor.LightMonitor(), logging_monitor.LoggingMonitor()])
         # END STUDENT CODE
 
     def setBehavioralLayer(self, behavioral):

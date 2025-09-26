@@ -83,7 +83,9 @@ class Light(Greenhouse_Behavior):
         self.led = max(0, min(255, level))
         self.actuators.doActions((self.name, self.sensors.getTime(),
                                   {"led": self.led}))
-                                  
+    def setOptimalLevel(self, level):
+        self.optimal_level = (max(0,level-3), level+3)      
+        print(f"Optimal level updated to {self.optimal_level}")                                  
 
 """
 The temperature should be greater than the lower limit

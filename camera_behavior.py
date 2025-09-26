@@ -109,7 +109,7 @@ class TakeImage(Greenhouse_Behavior):
 
     def wait_light_finished(self):
         return (self.light_wait_start is not None
-                and (self.time - self.light_wait_start) >= 5)
+                and (self.time - self.light_wait_start) >= 3)
 
     def wait_image_finished(self):
         return (self.image_wait_start is not None

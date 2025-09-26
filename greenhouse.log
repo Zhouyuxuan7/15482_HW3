@@ -1,4 +1,4 @@
-time, light, temp, humid, smoist, weight,level, fan, wpump, led, camera
+time, light, temp, humid, smoist, weight,level, fan, wpump, camera, led
 Finished processing state Halt exit callbacks.
 Finished processing state init enter callbacks.
 Executed callback 'setInitial'

@@ -1,0 +1,44 @@
+• (4 pts) Provide 2 details for each of the 2 tests, according to the scenario (1pt/detail)
+
+Test 1:
+Use the other temperature sensor to compare the readings. We can compute the 
+difference between the sensor readings and set an allowable threshold of 
+difference. If the difference is large enough over a certain time period, we can 
+infer that the additional sensor may be faulty. To recover from this, you would 
+have to replace the other sensor or rely solely on the working one.
+
+Test 2:
+Turn on the fan and check log all temperature sensors. For each sensor, measure 
+difference in temperature after the fan step and compute cross correlation 
+between RPM and temperature (should be negative with a small delay). If only 
+the new sensor shows no/odd response while others respond normally, then we can 
+infer that it is sensor placement/fault. If all sensors show weak cooling while 
+temperature remains high, then it could be an airflow/fan issue or insufficient 
+capacity.
+
+
+
+• (1 pt) Choose one of the tests and provide 2 reasons why it is preferred
+
+Preferred Test: Test 1 (Cross-Sensor Comparison)
+Reason 1: Test 1 doesn't interfere with the regular schedule or operations. 
+Test 1 passively monitors and compares sensor data without requiring the TerraBot 
+to take any additional actions, meaning that watering, lighting, and humidity 
+control routines can continue as normal.
+
+Reason 2: Test 1 is preferred because it is consistent and reliable across 
+conditions. The fan test depends on external variables that the TerraBot cannot 
+fully control, such as the position of the fan, the amount of heat coming from 
+sunlight, etc., which introduces noises that can cause false positives or false 
+negatives. 
+
+
+
+• (1 pt) Provide the pro and con of the chosen test, relative to the other test
+
+Pro: It uses existing sensor data, and there is no active actuation that could 
+disrupt climate targets. It's faster and safer.
+
+Con: It relies on the assumption that the other sensor works properly. If the 
+other sensor is broken, the threshold may not be triggered even though the 
+readings are incorrect.

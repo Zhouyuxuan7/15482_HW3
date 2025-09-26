@@ -13,7 +13,7 @@ class LoggingMonitor(Monitor):
         if os.path.exists(log_file):
             open(log_file, 'w').close()
         logging.basicConfig(filename="greenhouse.log", level=logging.INFO, format="%(message)s")
-        header = "time, light, temp, humid, smoist, weight,level, fan, wpump, led, camera"
+        header = "time, light, temp, humid, smoist, weight,level, fan, wpump, camera, led"
         logging.info(header)
         # END STUDENT CODE
 
@@ -34,7 +34,7 @@ class LoggingMonitor(Monitor):
             "light", "temp", "humid", "smoist", "weight", "level"
         ]]
         actuator_values = [str(self.actuator_state.get(k, "")) for k in [
-            "fan", "wpump", "led", "camera"
+            "fan", "wpump", "camera", "led"
         ]]
         row = ",".join([str(timestamp)] + sensor_values + actuator_values)
         logging.info(row)
